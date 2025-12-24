@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1"> <!-- mobile friendly -->
+    <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>The Gilgamesh Quest</title>
     <style>
         body {
@@ -168,17 +168,21 @@
 
     // Player State
     const player = { x: 1, y: 1, color: '#4b7bec' };
-    let currentGate = null;
-    let usedQuestions = [];
+    let currentGate = null; // Stores coordinates of the gate currently being challenged
+    let usedQuestions = []; // Tracks which questions have been asked
+
+    // Input lock to prevent sneaking through before modal fully shows/handles
+    let inputLocked = false;
 
     // Initialize Game
     function initGame() {
+        // Find start position
         for(let r=0; r<ROWS; r++){
             for(let c=0; c<COLS; c++){
                 if(mapLayout[r][c] === 2) {
                     player.x = c;
                     player.y = r;
-                    return draw();
+                    break;
                 }
             }
         }
@@ -187,33 +191,68 @@
 
     // Input Handling
     document.addEventListener('keydown', (e) => {
+        if (inputLocked) return; // immediately block while modal active/locking
         if(document.getElementById('question-modal').style.display === 'block') return;
         if(document.getElementById('win-modal').style.display === 'block') return;
 
         let nextX = player.x;
         let nextY = player.y;
+
         if (e.key === 'ArrowUp') nextY--;
         if (e.key === 'ArrowDown') nextY++;
         if (e.key === 'ArrowLeft') nextX--;
         if (e.key === 'ArrowRight') nextX++;
 
-        if (mapLayout[nextY] && mapLayout[nextY][nextX] !== undefined) {
-            const tile = mapLayout[nextY][nextX];
-            if (tile !== 1) {
-                if (tile === 4) triggerQuestion(nextX, nextY);
-                else if (tile === 3) { movePlayer(nextX, nextY); showWin(); }
-                else movePlayer(nextX, nextY);
-            }
+        // Boundary/Tile Check
+        if (!mapLayout[nextY] || mapLayout[nextY][nextX] === undefined) return;
+
+        const tile = mapLayout[nextY][nextX];
+
+        // Explicit handling:
+        if (tile === 1) {
+            // Wall: blocked
+            return;
         }
+
+        if (tile === 4) {
+            // Gate: block movement and trigger question
+            triggerQuestion(nextX, nextY);
+            return;
+        }
+
+        if (tile === 3) {
+            // End -> Win
+            movePlayer(nextX, nextY);
+            showWin();
+            return;
+        }
+
+        // Normal Move (0 or 2)
+        movePlayer(nextX, nextY);
     });
 
-    function movePlayer(x, y) { player.x = x; player.y = y; draw(); }
+    function movePlayer(x, y) {
+        player.x = x;
+        player.y = y;
+        draw();
+    }
 
+    // Question Logic
     function triggerQuestion(x, y) {
         currentGate = { x, y };
-        if(usedQuestions.length >= questions.length) usedQuestions = [];
+        inputLocked = true; // block further input until question answered/closed
+        
+        // Reset questions if we've used them all
+        if(usedQuestions.length >= questions.length) {
+            usedQuestions = [];
+        }
+
+        // Pick a random question that hasn't been used recently
         let qIndex;
-        do { qIndex = Math.floor(Math.random() * questions.length); } while (usedQuestions.includes(qIndex));
+        do {
+            qIndex = Math.floor(Math.random() * questions.length);
+        } while (usedQuestions.includes(qIndex) && usedQuestions.length < questions.length);
+        
         usedQuestions.push(qIndex);
         showModal(questions[qIndex]);
     }
@@ -224,44 +263,66 @@
         const text = document.getElementById('q-text');
         const optsDiv = document.getElementById('q-options');
         const msg = document.getElementById('message-area');
+
+        // Reset UI
         title.innerText = "The Gatekeeper Asks...";
         text.innerText = qObj.q;
         optsDiv.innerHTML = "";
         msg.innerText = "";
+
+        // Generate Buttons
         qObj.options.forEach((opt, idx) => {
             const btn = document.createElement('button');
             btn.innerText = opt;
             btn.onclick = () => checkAnswer(idx, qObj.answer);
             optsDiv.appendChild(btn);
         });
+
         modal.style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('question-modal').style.display = 'none';
+        inputLocked = false;
     }
 
     function checkAnswer(selected, correct) {
         const msg = document.getElementById('message-area');
         if (selected === correct) {
+            // Correct Answer
             msg.style.color = "#26de81";
             msg.innerText = "Correct! The gate opens.";
+            
             setTimeout(() => {
-                mapLayout[currentGate.y][currentGate.x] = 0;
-                movePlayer(currentGate.x, currentGate.y);
-                document.getElementById('question-modal').style.display = 'none';
-            }, 800);
+                // Remove gate from map (set to floor = 0)
+                if (currentGate) {
+                    mapLayout[currentGate.y][currentGate.x] = 0;
+                    // Move player into the gate spot
+                    movePlayer(currentGate.x, currentGate.y);
+                    currentGate = null;
+                }
+                closeModal();
+            }, 600);
         } else {
+            // Incorrect Answer
             msg.style.color = "#ff6b6b";
             msg.innerText = "Incorrect! Access denied.";
+            
             setTimeout(() => {
-                document.getElementById('question-modal').style.display = 'none';
-            }, 1000);
+                closeModal();
+            }, 900);
         }
     }
 
-    function showWin() { document.getElementById('win-modal').style.display = 'block'; }
+    function showWin() {
+        document.getElementById('win-modal').style.display = 'block';
+    }
 
     /**
      * RENDER LOOP
      */
     function draw() {
+        // Clear background
         ctx.fillStyle = "#2b2b2b";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -272,26 +333,35 @@
                 const y = r * TILE_SIZE;
 
                 if (tile === 1) {
+                    // Wall
                     ctx.fillStyle = "#57606f";
                     ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    // Add some depth
                     ctx.strokeStyle = "#2f3542";
                     ctx.lineWidth = 2;
                     ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
                 } else if (tile === 3) {
+                    // End Goal
                     ctx.fillStyle = "#26de81";
                     ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                     ctx.fillStyle = "#000";
                     ctx.font = "bold 10px Arial";
                     ctx.fillText("URUK", x+5, y+24);
                 } else if (tile === 4) {
+                    // Gate (draw as blocked until opened)
                     ctx.fillStyle = "#ff4757";
                     ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
                     ctx.fillStyle = "#fff";
                     ctx.font = "bold 20px Arial";
                     ctx.fillText("?", x+13, y+27);
+                    // Add a small lock icon-like bar to indicate closed
+                    ctx.fillStyle = "rgba(0,0,0,0.2)";
+                    ctx.fillRect(x+6, y+6, TILE_SIZE-12, 6);
                 } else {
+                    // Floor (0) and Start (2)
                     ctx.fillStyle = "#333";
                     ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    // Faint grid
                     ctx.strokeStyle = "#3a3a3a";
                     ctx.lineWidth = 1;
                     ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
@@ -302,10 +372,13 @@
         // Draw Player
         ctx.fillStyle = player.color;
         ctx.beginPath();
+        // Draw a circle for the player
         const cx = player.x * TILE_SIZE + TILE_SIZE/2;
         const cy = player.y * TILE_SIZE + TILE_SIZE/2;
         ctx.arc(cx, cy, TILE_SIZE/3, 0, Math.PI*2);
         ctx.fill();
+        
+        // Player highlight
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
         ctx.stroke();
@@ -313,6 +386,7 @@
 
     // Run the game
     initGame();
+
 </script>
 </body>
 </html>
