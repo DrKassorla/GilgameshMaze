@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1"> <!-- mobile friendly -->
+    <title>The Gilgamesh Quest</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2b2b2b;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden; /* Prevent scrolling */
+        }
+        h1 { margin-bottom: 10px; color: #f1f2f6; }
+        
+        #game-container {
+            position: relative;
+            border: 4px solid #8c7ae6;
+            background: #000;
+            box-shadow: 0 0 20px rgba(140, 122, 230, 0.5);
+            border-radius: 4px;
+        }
+
+        canvas { display: block; }
+
+        /* UI Overlay for Modals */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .modal {
+            background: rgba(30, 30, 30, 0.98);
+            padding: 25px;
+            border: 2px solid #fff;
+            border-radius: 12px;
+            text-align: center;
+            width: 80%;
+            max-width: 380px;
+            pointer-events: auto;
+            display: none; /* Hidden by default */
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+        }
+
+        .modal h2 { margin-top: 0; color: #e1b12c; font-size: 1.5rem; }
+        .modal p { font-size: 1.1rem; line-height: 1.4; margin-bottom: 20px; }
+
+        .options { display: flex; flex-direction: column; gap: 8px; }
+
+        .options button {
+            width: 100%;
+            padding: 12px;
+            background: #444;
+            border: 1px solid #666;
+            color: #fff;
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: all 0.2s;
+            text-align: left;
+            padding-left: 15px;
+        }
+
+        .options button:hover {
+            background: #8c7ae6;
+            border-color: #a29bfe;
+            transform: translateX(5px);
+        }
+
+        #message-area {
+            margin-top: 15px;
+            height: 20px;
+            color: #ff6b6b;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            color: #a4b0be;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>The Quest for Gilgamesh</h1>
+    
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="ui-layer">
+            <div id="question-modal" class="modal">
+                <h2 id="q-title">Gatekeeper's Challenge</h2>
+                <p id="q-text">Question goes here...</p>
+                <div class="options" id="q-options"></div>
+                <div id="message-area"></div>
+            </div>
+
+            <div id="win-modal" class="modal">
+                <h2 style="color: #26de81;">You Reached Uruk!</h2>
+                <p>You have successfully navigated the historical records and found the real King Gilgamesh.</p>
+                <div class="options">
+                    <button onclick="location.reload()" style="text-align: center; background:#e1b12c; color:#000; font-weight:bold;">Play Again</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="instructions">Use <strong>Arrow Keys</strong> to move. Answer questions to unlock red gates.</p>
+
+<script>
+    /**
+     * GAME CONFIGURATION
+     */
+    const TILE_SIZE = 40;
+
+    // Map Codes: 0: Floor, 1: Wall, 2: Start, 3: End, 4: Gate (Question)
+    const mapLayout = [
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+        [1,2,0,0,1,0,0,0,0,0,1,0,0,3,1],
+        [1,1,1,0,1,0,1,1,1,0,1,0,1,1,1],
+        [1,0,0,0,0,0,1,0,0,0,1,0,0,0,1],
+        [1,0,1,1,4,1,1,0,1,4,1,1,1,0,1],
+        [1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+        [1,1,1,4,1,1,1,1,1,0,1,1,1,4,1],
+        [1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ];
+
+    // Derive grid size from the map so they always match
+    const ROWS = mapLayout.length;
+    const COLS = mapLayout[0].length;
+
+    // Questions
+    const questions = [
+        { q: "Who wrote the definitive 1939 critical edition of The Sumerian King List?", options: ["Sigmund Freud", "Thorkild Jacobsen", "Hammurabi", "George Smith"], answer: 1 },
+        { q: "Which artifact is the primary clue for investigating the historical Gilgamesh?", options: ["The Rosetta Stone", "The Sumerian King List", "The Dead Sea Scrolls", "The Code of Ur-Nammu"], answer: 1 },
+        { q: "Historical evidence suggests Gilgamesh was a contemporary of which King of Kish?", options: ["Sargon", "Nebuchadnezzar", "Aka", "Enkidu"], answer: 2 },
+        { q: "The name 'Gilgamesh' matches naming conventions from which period?", options: ["The Fara Period", "The Roman Empire", "The Victorian Era", "The Neo-Babylonian Period"], answer: 0 },
+        { q: "What monumental achievement is the historical Gilgamesh credited with?", options: ["Building the Hanging Gardens", "Building the walls of Uruk", "Inventing the wheel", "Writing the first law code"], answer: 1 },
+        { q: "Scholars believe the historical Gilgamesh likely ruled around which year?", options: ["1000 BC", "2600 BC", "500 AD", "4000 BC"], answer: 1 }
+    ];
+
+    /**
+     * GAME LOGIC
+     */
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Make canvas match the map size
+    canvas.width = COLS * TILE_SIZE;
+    canvas.height = ROWS * TILE_SIZE;
+
+    // Player State
+    const player = { x: 1, y: 1, color: '#4b7bec' };
+    let currentGate = null;
+    let usedQuestions = [];
+
+    // Initialize Game
+    function initGame() {
+        for(let r=0; r<ROWS; r++){
+            for(let c=0; c<COLS; c++){
+                if(mapLayout[r][c] === 2) {
+                    player.x = c;
+                    player.y = r;
+                    return draw();
+                }
+            }
+        }
+        draw();
+    }
+
+    // Input Handling
+    document.addEventListener('keydown', (e) => {
+        if(document.getElementById('question-modal').style.display === 'block') return;
+        if(document.getElementById('win-modal').style.display === 'block') return;
+
+        let nextX = player.x;
+        let nextY = player.y;
+        if (e.key === 'ArrowUp') nextY--;
+        if (e.key === 'ArrowDown') nextY++;
+        if (e.key === 'ArrowLeft') nextX--;
+        if (e.key === 'ArrowRight') nextX++;
+
+        if (mapLayout[nextY] && mapLayout[nextY][nextX] !== undefined) {
+            const tile = mapLayout[nextY][nextX];
+            if (tile !== 1) {
+                if (tile === 4) triggerQuestion(nextX, nextY);
+                else if (tile === 3) { movePlayer(nextX, nextY); showWin(); }
+                else movePlayer(nextX, nextY);
+            }
+        }
+    });
+
+    function movePlayer(x, y) { player.x = x; player.y = y; draw(); }
+
+    function triggerQuestion(x, y) {
+        currentGate = { x, y };
+        if(usedQuestions.length >= questions.length) usedQuestions = [];
+        let qIndex;
+        do { qIndex = Math.floor(Math.random() * questions.length); } while (usedQuestions.includes(qIndex));
+        usedQuestions.push(qIndex);
+        showModal(questions[qIndex]);
+    }
+
+    function showModal(qObj) {
+        const modal = document.getElementById('question-modal');
+        const title = document.getElementById('q-title');
+        const text = document.getElementById('q-text');
+        const optsDiv = document.getElementById('q-options');
+        const msg = document.getElementById('message-area');
+        title.innerText = "The Gatekeeper Asks...";
+        text.innerText = qObj.q;
+        optsDiv.innerHTML = "";
+        msg.innerText = "";
+        qObj.options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(idx, qObj.answer);
+            optsDiv.appendChild(btn);
+        });
+        modal.style.display = 'block';
+    }
+
+    function checkAnswer(selected, correct) {
+        const msg = document.getElementById('message-area');
+        if (selected === correct) {
+            msg.style.color = "#26de81";
+            msg.innerText = "Correct! The gate opens.";
+            setTimeout(() => {
+                mapLayout[currentGate.y][currentGate.x] = 0;
+                movePlayer(currentGate.x, currentGate.y);
+                document.getElementById('question-modal').style.display = 'none';
+            }, 800);
+        } else {
+            msg.style.color = "#ff6b6b";
+            msg.innerText = "Incorrect! Access denied.";
+            setTimeout(() => {
+                document.getElementById('question-modal').style.display = 'none';
+            }, 1000);
+        }
+    }
+
+    function showWin() { document.getElementById('win-modal').style.display = 'block'; }
+
+    /**
+     * RENDER LOOP
+     */
+    function draw() {
+        ctx.fillStyle = "#2b2b2b";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                const tile = mapLayout[r][c];
+                const x = c * TILE_SIZE;
+                const y = r * TILE_SIZE;
+
+                if (tile === 1) {
+                    ctx.fillStyle = "#57606f";
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = "#2f3542";
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                } else if (tile === 3) {
+                    ctx.fillStyle = "#26de81";
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = "#000";
+                    ctx.font = "bold 10px Arial";
+                    ctx.fillText("URUK", x+5, y+24);
+                } else if (tile === 4) {
+                    ctx.fillStyle = "#ff4757";
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.fillStyle = "#fff";
+                    ctx.font = "bold 20px Arial";
+                    ctx.fillText("?", x+13, y+27);
+                } else {
+                    ctx.fillStyle = "#333";
+                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                    ctx.strokeStyle = "#3a3a3a";
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
+                }
+            }
+        }
+
+        // Draw Player
+        ctx.fillStyle = player.color;
+        ctx.beginPath();
+        const cx = player.x * TILE_SIZE + TILE_SIZE/2;
+        const cy = player.y * TILE_SIZE + TILE_SIZE/2;
+        ctx.arc(cx, cy, TILE_SIZE/3, 0, Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    // Run the game
+    initGame();
+</script>
+</body>
+</html>
