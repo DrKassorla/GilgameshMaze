@@ -94,6 +94,19 @@
             color: #a4b0be;
             font-size: 0.9rem;
         }
+
+        /* Global temporary message shown when the player tries to win early */
+        #global-message {
+            margin-top: 8px;
+            min-height: 20px;
+            color: #ffd32a;
+            font-weight: 600;
+            font-size: 0.95rem;
+            opacity: 0;
+            transition: opacity 180ms ease-in-out;
+            pointer-events: none;
+        }
+        #global-message.visible { opacity: 1; }
     </style>
 </head>
 <body>
@@ -122,6 +135,7 @@
     </div>
 
     <p class="instructions">Use <strong>Arrow Keys</strong> to move. Answer questions to unlock red gates.</p>
+    <div id="global-message" aria-live="polite"></div>
 
 <script>
     /**
@@ -174,6 +188,9 @@
     // Input lock to prevent sneaking through before modal fully shows/handles
     let inputLocked = false;
 
+    const globalMessageEl = document.getElementById('global-message');
+    let globalMessageTimer = null;
+
     // Initialize Game
     function initGame() {
         // Find start position
@@ -187,6 +204,37 @@
             }
         }
         draw();
+    }
+
+    // Count remaining gates
+    function gatesRemaining() {
+        let count = 0;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (mapLayout[r][c] === 4) count++;
+            }
+        }
+        return count;
+    }
+
+    function showGlobalMessage(text, duration = 1600) {
+        clearGlobalMessage();
+        globalMessageEl.textContent = text;
+        globalMessageEl.classList.add('visible');
+        if (duration > 0) {
+            globalMessageTimer = setTimeout(() => {
+                clearGlobalMessage();
+            }, duration);
+        }
+    }
+
+    function clearGlobalMessage() {
+        if (globalMessageTimer) {
+            clearTimeout(globalMessageTimer);
+            globalMessageTimer = null;
+        }
+        globalMessageEl.classList.remove('visible');
+        globalMessageEl.textContent = '';
     }
 
     // Input Handling
@@ -221,10 +269,16 @@
         }
 
         if (tile === 3) {
-            // End -> Win
-            movePlayer(nextX, nextY);
-            showWin();
-            return;
+            // End -> only allow win if all gates are opened
+            const remaining = gatesRemaining();
+            if (remaining > 0) {
+                showGlobalMessage(`You must unlock ${remaining} gate(s) before reaching Uruk.`);
+                return;
+            } else {
+                movePlayer(nextX, nextY);
+                showWin();
+                return;
+            }
         }
 
         // Normal Move (0 or 2)
@@ -300,6 +354,7 @@
                     // Move player into the gate spot
                     movePlayer(currentGate.x, currentGate.y);
                     currentGate = null;
+                    clearGlobalMessage(); // clear any "must unlock" message
                 }
                 closeModal();
             }, 600);
