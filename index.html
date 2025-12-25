@@ -15,98 +15,34 @@
             justify-content: center;
             height: 100vh;
             margin: 0;
-            overflow: hidden; /* Prevent scrolling */
+            overflow: hidden;
         }
         h1 { margin-bottom: 10px; color: #f1f2f6; }
-        
-        #game-container {
-            position: relative;
-            border: 4px solid #8c7ae6;
-            background: #000;
-            box-shadow: 0 0 20px rgba(140, 122, 230, 0.5);
-            border-radius: 4px;
-        }
-
+        #game-container { position: relative; border: 4px solid #8c7ae6; background: #000; box-shadow: 0 0 20px rgba(140,122,230,0.5); border-radius: 4px; }
         canvas { display: block; }
 
-        /* UI Overlay for Modals */
-        #ui-layer {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
-        }
+        /* UI */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display:flex; align-items:center; justify-content:center; z-index:10; }
+        .modal { background: rgba(30,30,30,0.98); padding: 25px; border: 2px solid #fff; border-radius: 12px; text-align:center; width:80%; max-width:520px; pointer-events:auto; display:none; box-shadow: 0 10px 25px rgba(0,0,0,0.8); }
+        .modal h2 { margin-top:0; color:#e1b12c; font-size:1.5rem; }
+        .options { display:flex; flex-direction:column; gap:8px; }
+        .options button { width:100%; padding:12px; background:#444; border:1px solid #666; color:#fff; cursor:pointer; border-radius:6px; font-size:1rem; transition:all 0.2s; text-align:left; padding-left:15px; }
+        .options button:hover { background:#8c7ae6; border-color:#a29bfe; transform:translateX(5px); }
 
-        .modal {
-            background: rgba(30, 30, 30, 0.98);
-            padding: 25px;
-            border: 2px solid #fff;
-            border-radius: 12px;
-            text-align: center;
-            width: 80%;
-            max-width: 380px;
-            pointer-events: auto;
-            display: none; /* Hidden by default */
-            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
-        }
+        #message-area { margin-top:15px; height:20px; color:#ff6b6b; font-weight:bold; font-size:0.9rem; }
+        .instructions { margin-top:15px; color:#a4b0be; font-size:0.9rem; }
 
-        .modal h2 { margin-top: 0; color: #e1b12c; font-size: 1.5rem; }
-        .modal p { font-size: 1.1rem; line-height: 1.4; margin-bottom: 20px; }
+        #global-message { margin-top:8px; min-height:20px; color:#ffd32a; font-weight:600; font-size:0.95rem; opacity:0; transition:opacity 180ms ease-in-out; pointer-events:none; }
+        #global-message.visible { opacity:1; }
 
-        .options { display: flex; flex-direction: column; gap: 8px; }
+        /* Win modal UI */
+        #comment-box { width:100%; min-height:90px; margin-top:10px; padding:8px; border-radius:6px; border:1px solid #666; background:#111; color:#fff; resize:vertical; font-family:inherit; font-size:0.95rem; }
+        .win-actions { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+        .small-muted { font-size:0.85rem; color:#b2bec3; margin-top:8px; }
 
-        .options button {
-            width: 100%;
-            padding: 12px;
-            background: #444;
-            border: 1px solid #666;
-            color: #fff;
-            cursor: pointer;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: all 0.2s;
-            text-align: left;
-            padding-left: 15px;
-        }
-
-        .options button:hover {
-            background: #8c7ae6;
-            border-color: #a29bfe;
-            transform: translateX(5px);
-        }
-
-        #message-area {
-            margin-top: 15px;
-            height: 20px;
-            color: #ff6b6b;
-            font-weight: bold;
-            font-size: 0.9rem;
-        }
-
-        .instructions {
-            margin-top: 15px;
-            color: #a4b0be;
-            font-size: 0.9rem;
-        }
-
-        /* Global temporary message shown when the player tries to win early */
-        #global-message {
-            margin-top: 8px;
-            min-height: 20px;
-            color: #ffd32a;
-            font-weight: 600;
-            font-size: 0.95rem;
-            opacity: 0;
-            transition: opacity 180ms ease-in-out;
-            pointer-events: none;
-        }
-        #global-message.visible { opacity: 1; }
+        /* Clue UI */
+        #clue-block { margin-top:12px; text-align:left; background:#0f1720; padding:10px; border-radius:6px; border:1px solid #333; color:#c7e8ff; display:none; white-space:pre-wrap; font-size:0.95rem; }
+        #clue-controls { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
     </style>
 </head>
 <body>
@@ -115,7 +51,7 @@
     
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
-        
+
         <div id="ui-layer">
             <div id="question-modal" class="modal">
                 <h2 id="q-title">Gatekeeper's Challenge</h2>
@@ -124,12 +60,23 @@
                 <div id="message-area"></div>
             </div>
 
-            <div id="win-modal" class="modal">
-                <h2 style="color: #26de81;">You Reached Uruk!</h2>
-                <p>You have successfully navigated the historical records and found the real King Gilgamesh.</p>
-                <div class="options">
-                    <button onclick="location.reload()" style="text-align: center; background:#e1b12c; color:#000; font-weight:bold;">Play Again</button>
+            <div id="win-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="win-title">
+                <h2 id="win-title" style="color:#26de81;">You Reached Uruk!</h2>
+                <p>Congratulations — you found the real King Gilgamesh.</p>
+
+                <!-- Optional comment (students don't have to leave one) -->
+                <textarea id="comment-box" placeholder="Optional: leave a note..." aria-label="Optional comment"></textarea>
+
+                <!-- Clue controls -->
+                <div id="clue-controls">
+                    <button id="reveal-clue-btn" style="background:#ff6b81; color:#000;">Reveal Clue</button>
+                    <button id="show-encrypted-btn" style="background:#a29bfe; color:#000;">Show Encrypted</button>
+                    <button id="download-clue-btn" style="background:#74b9ff; color:#000;">Download Clue</button>
+                    <button id="done-btn" style="background:#e1b12c; color:#000;">Done</button>
                 </div>
+
+                <div id="clue-block" aria-live="polite"></div>
+                <div id="win-note" class="small-muted">Tip: Click Reveal Clue when you're ready to see the next hint.</div>
             </div>
         </div>
     </div>
@@ -138,12 +85,9 @@
     <div id="global-message" aria-live="polite"></div>
 
 <script>
-    /**
-     * GAME CONFIGURATION
-     */
     const TILE_SIZE = 40;
 
-    // Map Codes: 0: Floor, 1: Wall, 2: Start, 3: End, 4: Gate (Question)
+    // Map codes: 0 floor, 1 wall, 2 start, 3 end, 4 gate
     const mapLayout = [
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
         [1,2,0,0,1,0,0,0,0,0,1,0,0,3,1],
@@ -156,292 +100,204 @@
         [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
     ];
 
-    // Derive grid size from the map so they always match
     const ROWS = mapLayout.length;
     const COLS = mapLayout[0].length;
 
-    // Questions
     const questions = [
-        { q: "Who wrote the definitive 1939 critical edition of The Sumerian King List?", options: ["Sigmund Freud", "Thorkild Jacobsen", "Hammurabi", "George Smith"], answer: 1 },
-        { q: "Which artifact is the primary clue for investigating the historical Gilgamesh?", options: ["The Rosetta Stone", "The Sumerian King List", "The Dead Sea Scrolls", "The Code of Ur-Nammu"], answer: 1 },
-        { q: "Historical evidence suggests Gilgamesh was a contemporary of which King of Kish?", options: ["Sargon", "Nebuchadnezzar", "Aka", "Enkidu"], answer: 2 },
-        { q: "The name 'Gilgamesh' matches naming conventions from which period?", options: ["The Fara Period", "The Roman Empire", "The Victorian Era", "The Neo-Babylonian Period"], answer: 0 },
-        { q: "What monumental achievement is the historical Gilgamesh credited with?", options: ["Building the Hanging Gardens", "Building the walls of Uruk", "Inventing the wheel", "Writing the first law code"], answer: 1 },
-        { q: "Scholars believe the historical Gilgamesh likely ruled around which year?", options: ["1000 BC", "2600 BC", "500 AD", "4000 BC"], answer: 1 }
+        { q: "Who wrote the definitive 1939 critical edition of The Sumerian King List?", options: ["Sigmund Freud","Thorkild Jacobsen","Hammurabi","George Smith"], answer:1 },
+        { q: "Which artifact is the primary clue for investigating the historical Gilgamesh?", options: ["The Rosetta Stone","The Sumerian King List","The Dead Sea Scrolls","The Code of Ur-Nammu"], answer:1 },
+        { q: "Historical evidence suggests Gilgamesh was a contemporary of which King of Kish?", options: ["Sargon","Nebuchadnezzar","Aka","Enkidu"], answer:2 },
+        { q: "The name 'Gilgamesh' matches naming conventions from which period?", options: ["The Fara Period","The Roman Empire","The Victorian Era","The Neo-Babylonian Period"], answer:0 },
+        { q: "What monumental achievement is the historical Gilgamesh credited with?", options: ["Building the Hanging Gardens","Building the walls of Uruk","Inventing the wheel","Writing the first law code"], answer:1 },
+        { q: "Scholars believe the historical Gilgamesh likely ruled around which year?", options: ["1000 BC","2600 BC","500 AD","4000 BC"], answer:1 }
     ];
 
-    /**
-     * GAME LOGIC
-     */
+    // CLUE config: edit CLUE for the hint you want students to receive
+    const CLUE = "At the old cedar gate, second stone from the left — look beneath.";
+    const REQUIRE_COMMENT_BEFORE_CLUE = false; // false = Reveal works without comment
+
+    // Light obfuscation (Caesar)
+    function caesarEncrypt(s, shift=3) {
+        return s.split('').map(ch => {
+            const code = ch.charCodeAt(0);
+            if (code >= 65 && code <= 90) return String.fromCharCode(((code-65+shift)%26)+65);
+            if (code >= 97 && code <= 122) return String.fromCharCode(((code-97+shift)%26)+97);
+            return ch;
+        }).join('');
+    }
+    function caesarDecrypt(s, shift=3){ return caesarEncrypt(s, 26-(shift%26)); }
+    const encryptedClue = caesarEncrypt(CLUE, 3);
+
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
-
-    // Make canvas match the map size
     canvas.width = COLS * TILE_SIZE;
     canvas.height = ROWS * TILE_SIZE;
 
-    // Player State
-    const player = { x: 1, y: 1, color: '#4b7bec' };
-    let currentGate = null; // Stores coordinates of the gate currently being challenged
-    let usedQuestions = []; // Tracks which questions have been asked
-
-    // Input lock to prevent sneaking through before modal fully shows/handles
+    const player = { x:1, y:1, color:'#4b7bec' };
+    let currentGate = null;
+    let usedQuestions = [];
     let inputLocked = false;
 
     const globalMessageEl = document.getElementById('global-message');
     let globalMessageTimer = null;
 
-    // Initialize Game
-    function initGame() {
-        // Find start position
-        for(let r=0; r<ROWS; r++){
-            for(let c = 0; c<COLS; c++){
-                if(mapLayout[r][c] === 2) {
-                    player.x = c;
-                    player.y = r;
-                    break;
-                }
+    // Win elements
+    const winModal = document.getElementById('win-modal');
+    const commentBox = document.getElementById('comment-box');
+    const revealClueBtn = document.getElementById('reveal-clue-btn');
+    const showEncryptedBtn = document.getElementById('show-encrypted-btn');
+    const downloadClueBtn = document.getElementById('download-clue-btn');
+    const doneBtn = document.getElementById('done-btn');
+    const clueBlock = document.getElementById('clue-block');
+
+    function initGame(){
+        for (let r=0;r<ROWS;r++){
+            for (let c=0;c<COLS;c++){
+                if (mapLayout[r][c]===2){ player.x=c; player.y=r; break; }
             }
         }
         draw();
     }
 
-    // Count remaining gates
-    function gatesRemaining() {
-        let count = 0;
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
-                if (mapLayout[r][c] === 4) count++;
-            }
-        }
+    function gatesRemaining(){
+        let count=0;
+        for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (mapLayout[r][c]===4) count++;
         return count;
     }
 
-    function showGlobalMessage(text, duration = 1600) {
+    function showGlobalMessage(text,duration=1600){
         clearGlobalMessage();
         globalMessageEl.textContent = text;
         globalMessageEl.classList.add('visible');
-        if (duration > 0) {
-            globalMessageTimer = setTimeout(() => {
-                clearGlobalMessage();
-            }, duration);
-        }
+        if (duration>0) globalMessageTimer = setTimeout(clearGlobalMessage,duration);
     }
+    function clearGlobalMessage(){ if(globalMessageTimer){clearTimeout(globalMessageTimer); globalMessageTimer=null;} globalMessageEl.classList.remove('visible'); globalMessageEl.textContent=''; }
 
-    function clearGlobalMessage() {
-        if (globalMessageTimer) {
-            clearTimeout(globalMessageTimer);
-            globalMessageTimer = null;
-        }
-        globalMessageEl.classList.remove('visible');
-        globalMessageEl.textContent = '';
-    }
-
-    // Input Handling
     document.addEventListener('keydown', (e) => {
-        if (inputLocked) return; // immediately block while modal active/locking
-        if(document.getElementById('question-modal').style.display === 'block') return;
-        if(document.getElementById('win-modal').style.display === 'block') return;
+        if (inputLocked) return;
+        if (document.getElementById('question-modal').style.display==='block') return;
+        if (winModal.style.display==='block') return;
 
-        let nextX = player.x;
-        let nextY = player.y;
+        let nextX = player.x, nextY = player.y;
+        if (e.key==='ArrowUp') nextY--;
+        if (e.key==='ArrowDown') nextY++;
+        if (e.key==='ArrowLeft') nextX--;
+        if (e.key==='ArrowRight') nextX++;
 
-        if (e.key === 'ArrowUp') nextY--;
-        if (e.key === 'ArrowDown') nextY++;
-        if (e.key === 'ArrowLeft') nextX--;
-        if (e.key === 'ArrowRight') nextX++;
-
-        // Boundary/Tile Check
-        if (!mapLayout[nextY] || mapLayout[nextY][nextX] === undefined) return;
-
+        if (!mapLayout[nextY] || mapLayout[nextY][nextX]===undefined) return;
         const tile = mapLayout[nextY][nextX];
 
-        // Explicit handling:
-        if (tile === 1) {
-            // Wall: blocked
-            return;
-        }
-
-        if (tile === 4) {
-            // Gate: block movement and trigger question
-            triggerQuestion(nextX, nextY);
-            return;
-        }
-
-        if (tile === 3) {
-            // End -> only allow win if all gates are opened
+        if (tile===1) return;
+        if (tile===4) { triggerQuestion(nextX,nextY); return; }
+        if (tile===3){
             const remaining = gatesRemaining();
-            if (remaining > 0) {
-                showGlobalMessage(`You must unlock ${remaining} gate(s) before reaching Uruk.`);
-                return;
-            } else {
-                movePlayer(nextX, nextY);
-                showWin();
-                return;
-            }
+            if (remaining>0){ showGlobalMessage(`You must unlock ${remaining} gate(s) before reaching Uruk.`); return; }
+            movePlayer(nextX,nextY); showWin(); return;
         }
-
-        // Normal Move (0 or 2)
-        movePlayer(nextX, nextY);
+        movePlayer(nextX,nextY);
     });
 
-    function movePlayer(x, y) {
-        player.x = x;
-        player.y = y;
-        draw();
-    }
+    function movePlayer(x,y){ player.x=x; player.y=y; draw(); }
 
-    // Question Logic
-    function triggerQuestion(x, y) {
-        currentGate = { x, y };
-        inputLocked = true; // block further input until question answered/closed
-        
-        // Reset questions if we've used them all
-        if(usedQuestions.length >= questions.length) {
-            usedQuestions = [];
-        }
-
-        // Pick a random question that hasn't been used recently
+    function triggerQuestion(x,y){
+        currentGate = {x,y};
+        inputLocked = true;
+        if (usedQuestions.length >= questions.length) usedQuestions = [];
         let qIndex;
-        do {
-            qIndex = Math.floor(Math.random() * questions.length);
-        } while (usedQuestions.includes(qIndex) && usedQuestions.length < questions.length);
-        
+        do { qIndex = Math.floor(Math.random()*questions.length); } while (usedQuestions.includes(qIndex) && usedQuestions.length < questions.length);
         usedQuestions.push(qIndex);
         showModal(questions[qIndex]);
     }
 
-    function showModal(qObj) {
+    function showModal(qObj){
         const modal = document.getElementById('question-modal');
         const title = document.getElementById('q-title');
         const text = document.getElementById('q-text');
         const optsDiv = document.getElementById('q-options');
         const msg = document.getElementById('message-area');
-
-        // Reset UI
         title.innerText = "The Gatekeeper Asks...";
         text.innerText = qObj.q;
-        optsDiv.innerHTML = "";
-        msg.innerText = "";
-
-        // Generate Buttons
-        qObj.options.forEach((opt, idx) => {
+        optsDiv.innerHTML = ""; msg.innerText = "";
+        qObj.options.forEach((opt,idx)=>{
             const btn = document.createElement('button');
             btn.innerText = opt;
             btn.onclick = () => checkAnswer(idx, qObj.answer);
             optsDiv.appendChild(btn);
         });
-
         modal.style.display = 'block';
     }
 
-    function closeModal() {
-        document.getElementById('question-modal').style.display = 'none';
-        inputLocked = false;
-    }
+    function closeModal(){ document.getElementById('question-modal').style.display='none'; inputLocked=false; }
 
-    function checkAnswer(selected, correct) {
+    function checkAnswer(selected, correct){
         const msg = document.getElementById('message-area');
-        if (selected === correct) {
-            // Correct Answer
+        if (selected === correct){
             msg.style.color = "#26de81";
             msg.innerText = "Correct! The gate opens.";
-            
-            setTimeout(() => {
-                // Remove gate from map (set to floor = 0)
-                if (currentGate) {
-                    mapLayout[currentGate.y][currentGate.x] = 0;
-                    // Move player into the gate spot
-                    movePlayer(currentGate.x, currentGate.y);
-                    currentGate = null;
-                    clearGlobalMessage(); // clear any "must unlock" message
-                }
+            setTimeout(()=>{
+                if (currentGate){ mapLayout[currentGate.y][currentGate.x]=0; movePlayer(currentGate.x,currentGate.y); currentGate=null; clearGlobalMessage(); }
                 closeModal();
-            }, 600);
+            },600);
         } else {
-            // Incorrect Answer
-            msg.style.color = "#ff6b6b";
-            msg.innerText = "Incorrect! Access denied.";
-            
-            setTimeout(() => {
-                closeModal();
-            }, 900);
+            msg.style.color = "#ff6b6b"; msg.innerText = "Incorrect! Access denied.";
+            setTimeout(closeModal,900);
         }
     }
 
-    function showWin() {
-        document.getElementById('win-modal').style.display = 'block';
+    function showWin(){
+        // do not auto-reveal — keep reveal button
+        clueBlock.style.display = 'none';
+        clueBlock.textContent = '';
+        commentBox.value = ''; // optional: leave blank
+        winModal.style.display = 'block';
     }
 
-    /**
-     * RENDER LOOP
-     */
-    function draw() {
-        // Clear background
-        ctx.fillStyle = "#2b2b2b";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Reveal clue — respects REQUIRE_COMMENT_BEFORE_CLUE
+    revealClueBtn.addEventListener('click', () => {
+        if (REQUIRE_COMMENT_BEFORE_CLUE){
+            const text = commentBox.value.trim();
+            if (!text){ clueBlock.textContent = 'Please add a comment before revealing the clue.'; clueBlock.style.display='block'; return; }
+        }
+        clueBlock.textContent = caesarDecrypt(encryptedClue,3);
+        clueBlock.style.display = 'block';
+    });
 
-        for (let r = 0; r < ROWS; r++) {
-            for (let c = 0; c < COLS; c++) {
+    // Show encrypted clue for puzzle effect
+    showEncryptedBtn.addEventListener('click', () => { clueBlock.textContent = encryptedClue; clueBlock.style.display = 'block'; });
+
+    // Download clue
+    downloadClueBtn.addEventListener('click', () => {
+        const plain = caesarDecrypt(encryptedClue,3);
+        const filename = `gilgamesh_clue_${new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')}.txt`;
+        const blob = new Blob([plain], { type:'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    doneBtn.addEventListener('click', ()=>{ winModal.style.display='none'; });
+
+    document.addEventListener('keydown', (e)=>{ if (e.key==='Escape' && winModal.style.display==='block') winModal.style.display='none'; });
+
+    function draw(){
+        ctx.fillStyle="#2b2b2b"; ctx.fillRect(0,0,canvas.width,canvas.height);
+        for (let r=0;r<ROWS;r++){
+            for (let c=0;c<COLS;c++){
                 const tile = mapLayout[r][c];
-                const x = c * TILE_SIZE;
-                const y = r * TILE_SIZE;
-
-                if (tile === 1) {
-                    // Wall
-                    ctx.fillStyle = "#57606f";
-                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    // Add some depth
-                    ctx.strokeStyle = "#2f3542";
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
-                } else if (tile === 3) {
-                    // End Goal
-                    ctx.fillStyle = "#26de81";
-                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = "#000";
-                    ctx.font = "bold 10px Arial";
-                    ctx.fillText("URUK", x+5, y+24);
-                } else if (tile === 4) {
-                    // Gate (draw as blocked until opened)
-                    ctx.fillStyle = "#ff4757";
-                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    ctx.fillStyle = "#fff";
-                    ctx.font = "bold 20px Arial";
-                    ctx.fillText("?", x+13, y+27);
-                    // Add a small lock icon-like bar to indicate closed
-                    ctx.fillStyle = "rgba(0,0,0,0.2)";
-                    ctx.fillRect(x+6, y+6, TILE_SIZE-12, 6);
-                } else {
-                    // Floor (0) and Start (2)
-                    ctx.fillStyle = "#333";
-                    ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
-                    // Faint grid
-                    ctx.strokeStyle = "#3a3a3a";
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, TILE_SIZE, TILE_SIZE);
-                }
+                const x = c*TILE_SIZE, y = r*TILE_SIZE;
+                if (tile===1){ ctx.fillStyle="#57606f"; ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE); ctx.strokeStyle="#2f3542"; ctx.lineWidth=2; ctx.strokeRect(x,y,TILE_SIZE,TILE_SIZE); }
+                else if (tile===3){ ctx.fillStyle="#26de81"; ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE); ctx.fillStyle="#000"; ctx.font="bold 10px Arial"; ctx.fillText("URUK", x+5, y+24); }
+                else if (tile===4){ ctx.fillStyle="#ff4757"; ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE); ctx.fillStyle="#fff"; ctx.font="bold 20px Arial"; ctx.fillText("?", x+13, y+27); ctx.fillStyle="rgba(0,0,0,0.2)"; ctx.fillRect(x+6,y+6,TILE_SIZE-12,6); }
+                else { ctx.fillStyle="#333"; ctx.fillRect(x,y,TILE_SIZE,TILE_SIZE); ctx.strokeStyle="#3a3a3a"; ctx.lineWidth=1; ctx.strokeRect(x,y,TILE_SIZE,TILE_SIZE); }
             }
         }
-
-        // Draw Player
-        ctx.fillStyle = player.color;
-        ctx.beginPath();
-        // Draw a circle for the player
-        const cx = player.x * TILE_SIZE + TILE_SIZE/2;
-        const cy = player.y * TILE_SIZE + TILE_SIZE/2;
-        ctx.arc(cx, cy, TILE_SIZE/3, 0, Math.PI*2);
-        ctx.fill();
-        
-        // Player highlight
-        ctx.strokeStyle = "#fff";
-        ctx.lineWidth = 2;
-        ctx.stroke();
+        ctx.fillStyle = player.color; ctx.beginPath();
+        const cx = player.x*TILE_SIZE + TILE_SIZE/2, cy = player.y*TILE_SIZE + TILE_SIZE/2;
+        ctx.arc(cx, cy, TILE_SIZE/3, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.stroke();
     }
 
-    // Run the game
+    // init
     initGame();
-
 </script>
 </body>
 </html>
